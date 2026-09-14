@@ -62,9 +62,9 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || (isProduction ? '' : 'dev_only_jwt_secret_must_be_configured_in_production_32chars'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1d',
   admin: {
-    email: (process.env.ADMIN_EMAIL || (isProduction ? '' : 'admin@example.com')).trim().toLowerCase(),
-    password: process.env.ADMIN_PASSWORD || (isProduction ? '' : 'DevAdminPass123!'),
-    name: process.env.ADMIN_NAME || 'NexGen Lead Architect',
+    email: (process.env.ADMIN_EMAIL || (isProduction ? '' : 'anish.bharathi@outlook.com')).trim().toLowerCase(),
+    password: process.env.ADMIN_PASSWORD || (isProduction ? '' : 'Anish*2007'),
+    name: process.env.ADMIN_NAME || 'Anish Bharathi',
   },
   email: {
     smtpHost: process.env.SMTP_HOST || '',

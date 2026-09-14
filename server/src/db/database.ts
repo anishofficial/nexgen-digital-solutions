@@ -109,21 +109,29 @@ function seedAdmin(db: DatabaseSync): void {
   }
 
   const checkStmt = db.prepare('SELECT id FROM admin_users WHERE email = ?');
-  const existing = checkStmt.get(config.admin.email.toLowerCase());
+  const existing = checkStmt.get(config.admin.email.toLowerCase()) as { id: string } | undefined;
+
+  const salt = bcrypt.genSaltSync(10);
+  const passwordHash = bcrypt.hashSync(config.admin.password, salt);
+  const now = new Date().toISOString();
 
   if (!existing) {
-    const salt = bcrypt.genSaltSync(10);
-    const passwordHash = bcrypt.hashSync(config.admin.password, salt);
     const id = `admin_${Date.now()}`;
-    const now = new Date().toISOString();
-
     const insertStmt = db.prepare(`
       INSERT INTO admin_users (id, email, name, role, password_hash, created_at)
       VALUES (?, ?, ?, 'superadmin', ?, ?)
     `);
 
     insertStmt.run(id, config.admin.email.toLowerCase(), config.admin.name, passwordHash, now);
-    console.log('[Database] Admin authentication configured.');
+    console.log(`[Database] Admin credentials configured for ${config.admin.email}.`);
+  } else {
+    const updateStmt = db.prepare(`
+      UPDATE admin_users
+      SET password_hash = ?, name = ?
+      WHERE email = ?
+    `);
+    updateStmt.run(passwordHash, config.admin.name, config.admin.email.toLowerCase());
+    console.log(`[Database] Admin credentials synchronized for ${config.admin.email}.`);
   }
 }
 
