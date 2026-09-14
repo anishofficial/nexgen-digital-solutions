@@ -1,0 +1,8 @@
+# NexGen Solutions robots.txt
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://YOUR_PRODUCTION_DOMAIN.example/sitemap.xml
+
