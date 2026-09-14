@@ -52,18 +52,39 @@ export interface ApiResponse<T = any> {
   count?: number;
 }
 
-const TOKEN_KEY = 'nexgen_admin_token';
-const USER_KEY = 'nexgen_admin_user';
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  created_at?: string;
+}
 
-// Token Management (sessionStorage only - never stored permanently across unauthenticated browser sessions)
+export interface UserAuthResponse {
+  success: boolean;
+  message?: string;
+  token?: string;
+  user?: UserProfile;
+  notFound?: boolean;
+  code?: string;
+  error?: string;
+}
+
+const ADMIN_TOKEN_KEY = 'nexgen_admin_token';
+const ADMIN_USER_KEY = 'nexgen_admin_user';
+
+const USER_TOKEN_KEY = 'nexgen_user_token';
+const USER_PROFILE_KEY = 'nexgen_user_profile';
+
+// Admin Token Management
 export function getStoredAdminToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return sessionStorage.getItem(TOKEN_KEY);
+  return sessionStorage.getItem(ADMIN_TOKEN_KEY);
 }
 
 export function getStoredAdminUser(): AdminUser | null {
   if (typeof window === 'undefined') return null;
-  const raw = sessionStorage.getItem(USER_KEY);
+  const raw = sessionStorage.getItem(ADMIN_USER_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -74,14 +95,14 @@ export function getStoredAdminUser(): AdminUser | null {
 
 export function setAdminSession(token: string, user: AdminUser): void {
   if (typeof window === 'undefined') return;
-  sessionStorage.setItem(TOKEN_KEY, token);
-  sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+  sessionStorage.setItem(ADMIN_USER_KEY, JSON.stringify(user));
 }
 
 export function clearAdminSession(): void {
   if (typeof window === 'undefined') return;
-  sessionStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+  sessionStorage.removeItem(ADMIN_USER_KEY);
 }
 
 export async function logoutAdmin(token?: string | null): Promise<void> {
@@ -96,12 +117,65 @@ export async function logoutAdmin(token?: string | null): Promise<void> {
   clearAdminSession();
 }
 
+// User Client Token Management (localStorage with sessionStorage fallback)
+export function getStoredUserToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(USER_TOKEN_KEY) || sessionStorage.getItem(USER_TOKEN_KEY);
+}
+
+export function getStoredUserProfile(): UserProfile | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(USER_PROFILE_KEY) || sessionStorage.getItem(USER_PROFILE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function setUserSession(token: string, user: UserProfile, rememberMe = true): void {
+  if (typeof window === 'undefined') return;
+  const storage = rememberMe ? localStorage : sessionStorage;
+  storage.setItem(USER_TOKEN_KEY, token);
+  storage.setItem(USER_PROFILE_KEY, JSON.stringify(user));
+  if (rememberMe) {
+    sessionStorage.removeItem(USER_TOKEN_KEY);
+    sessionStorage.removeItem(USER_PROFILE_KEY);
+  }
+}
+
+export function clearUserSession(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(USER_TOKEN_KEY);
+  localStorage.removeItem(USER_PROFILE_KEY);
+  sessionStorage.removeItem(USER_TOKEN_KEY);
+  sessionStorage.removeItem(USER_PROFILE_KEY);
+}
+
+export async function logoutUser(token?: string | null): Promise<void> {
+  const activeToken = token || getStoredUserToken();
+  if (activeToken) {
+    try {
+      await request('/api/auth/logout', { method: 'POST' }, activeToken);
+    } catch {
+      // Safe cleanup
+    }
+  }
+  clearUserSession();
+}
+
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  notFound?: boolean;
+
+  constructor(status: number, message: string, code?: string, notFound?: boolean) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code;
+    this.notFound = notFound;
   }
 }
 
@@ -111,7 +185,6 @@ async function request<T>(
   options: RequestInit = {},
   token?: string | null
 ): Promise<T> {
-  // If endpoint is relative (starts with /), prefix with API_BASE_URL unless API_BASE_URL is empty
   const url = endpoint.startsWith('http')
     ? endpoint
     : `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
@@ -125,7 +198,7 @@ async function request<T>(
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
     const response = await fetch(url, {
@@ -136,19 +209,17 @@ async function request<T>(
 
     clearTimeout(timeoutId);
 
-    // Handle 401 Unauthorized globally for admin requests
-    if (response.status === 401) {
-      clearAdminSession();
-      const errorData = await response.json().catch(() => ({}));
-      throw new ApiError(401, errorData.error || 'Authentication required or session expired.');
-    }
-
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      if (response.status === 401 && endpoint.startsWith('/api/admin') && !endpoint.includes('/login')) {
+        clearAdminSession();
+      }
       throw new ApiError(
         response.status,
-        data.error || `Server responded with status ${response.status}`
+        data.error || data.message || `Server responded with status ${response.status}`,
+        data.code,
+        Boolean(data.notFound || response.status === 404)
       );
     }
 
@@ -207,6 +278,57 @@ export async function submitNewsletterSubscription(email: string): Promise<ApiRe
     method: 'POST',
     body: JSON.stringify({ email }),
   });
+}
+
+// User Client Authentication Endpoints
+export async function userRegister(
+  email: string,
+  password: string,
+  name?: string
+): Promise<{ success: boolean; token: string; user: UserProfile; message?: string }> {
+  const result = await request<{ success: boolean; token: string; user: UserProfile; message?: string }>(
+    '/api/auth/register',
+    {
+      method: 'POST',
+      body: JSON.stringify({ email, password, name }),
+    }
+  );
+
+  if (result.success && result.token && result.user) {
+    setUserSession(result.token, result.user, true);
+  }
+
+  return result;
+}
+
+export async function userLogin(
+  email: string,
+  password: string,
+  rememberMe = true
+): Promise<{ success: boolean; token: string; user: UserProfile; message?: string }> {
+  const result = await request<{ success: boolean; token: string; user: UserProfile; message?: string }>(
+    '/api/auth/login',
+    {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }
+  );
+
+  if (result.success && result.token && result.user) {
+    setUserSession(result.token, result.user, rememberMe);
+  }
+
+  return result;
+}
+
+export async function userGetMe(
+  token: string
+): Promise<{ success: boolean; user: UserProfile }> {
+  return request<{ success: boolean; user: UserProfile }>(
+    '/api/auth/me',
+    { method: 'GET' },
+    token
+  );
 }
 
 // Admin API Endpoints

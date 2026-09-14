@@ -167,6 +167,58 @@ async function runTests() {
       console.log('\nℹ️  Skipping authenticated admin tests (VERIFY_ADMIN_EMAIL and VERIFY_ADMIN_PASSWORD not set).');
     }
 
+    // 12. User Authentication: Registration & Smart Auto-switch Tests
+    console.log('\n--- Test 12: User Client Registration & Authentication Flow ---');
+    const testUserEmail = `client_${Date.now()}@example.com`;
+    const testUserPass = 'ClientSecurePass99!';
+
+    // Step A: Attempt login before account exists -> Should return 404 USER_NOT_FOUND
+    const nonExistRes = await fetch(`${BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: testUserEmail, password: testUserPass }),
+    });
+    const nonExistData = await nonExistRes.json();
+    assert(nonExistRes.status === 404, 'Unregistered user login returns 404 Not Found');
+    assert(nonExistData.code === 'USER_NOT_FOUND', 'Response code is USER_NOT_FOUND to enable smart UI switch');
+
+    // Step B: Register user
+    const regRes = await fetch(`${BASE_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: testUserEmail, password: testUserPass, name: 'Test Client' }),
+    });
+    const regData = await regRes.json();
+    assert(regRes.status === 201, 'User registration returns 201 Created');
+    assert(regData.success === true, 'User registration returns success = true');
+    assert(Boolean(regData.token), 'Registration returns valid JWT token');
+
+    // Step C: Attempt duplicate registration -> Should return 409 Conflict
+    const dupRes = await fetch(`${BASE_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: testUserEmail, password: testUserPass }),
+    });
+    assert(dupRes.status === 409, 'Duplicate user registration returns 409 Conflict');
+
+    // Step D: Login registered user
+    const userLoginRes = await fetch(`${BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: testUserEmail, password: testUserPass }),
+    });
+    const userLoginData = await userLoginRes.json();
+    assert(userLoginRes.status === 200, 'Registered user login returns 200 OK');
+    assert(userLoginData.user?.email === testUserEmail, 'User email matches profile in response');
+
+    // Step E: Verify /api/auth/me
+    const userMeRes = await fetch(`${BASE_URL}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${userLoginData.token}` },
+    });
+    const userMeData = await userMeRes.json();
+    assert(userMeRes.status === 200, 'GET /api/auth/me returns 200 OK');
+    assert(userMeData.user?.role === 'user', 'Authenticated client role is user');
+
     console.log('\n=============================================');
     console.log(`🎉 API TESTS COMPLETE!`);
     console.log(`Passed: ${testsPassed} | Failed: ${testsFailed}`);

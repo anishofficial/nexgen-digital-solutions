@@ -58,23 +58,28 @@ export function createRateLimiter(options: { windowMs: number; max: number; mess
   };
 }
 
-// Pre-configured rate limiters
 export const adminLoginLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
+  max: 15,
   message: 'Too many admin login attempts from this IP address. Please wait 15 minutes before trying again.',
 });
 
 export const inquiryLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 30,
   message: 'Inquiry submission limit reached. Please wait a few minutes before submitting another brief.',
 });
 
 export const newsletterLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
+  max: 30,
   message: 'Too many subscription attempts. Please try again later.',
+});
+
+export const userAuthLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50,
+  message: 'Too many authentication attempts from this IP. Please wait a few minutes before trying again.',
 });
 
 

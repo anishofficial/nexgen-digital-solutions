@@ -9,6 +9,7 @@ import { inquiriesRouter } from './routes/inquiries.routes.js';
 import { estimatesRouter } from './routes/estimates.routes.js';
 import { newsletterRouter } from './routes/newsletter.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
+import { authRouter } from './routes/auth.routes.js';
 
 const app = express();
 
@@ -100,6 +101,7 @@ app.use('/health', healthRouter);
 app.use('/api/health', healthRouter);
 
 // Application API Routes
+app.use('/api/auth', authRouter);
 app.use('/api/inquiries', inquiriesRouter);
 app.use('/api/estimates', estimatesRouter);
 app.use('/api/newsletter', newsletterRouter);

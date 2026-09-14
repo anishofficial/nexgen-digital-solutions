@@ -51,6 +51,23 @@ export interface AdminUser {
   created_at: string;
 }
 
+export interface AppUser {
+  id: string;
+  email: string;
+  name: string;
+  password_hash: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserProfileResponse {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  created_at: string;
+}
+
 export interface AuthTokenPayload {
   sub: string;
   userId?: string;

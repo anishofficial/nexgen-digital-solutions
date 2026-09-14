@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider } from './context/AuthContext';
 import { Navbar } from './components/layout/Navbar';
 import { Footer } from './components/layout/Footer';
 import { Hero } from './components/sections/Hero';
@@ -14,6 +15,8 @@ import { Testimonials } from './components/sections/Testimonials';
 import { FAQ } from './components/sections/FAQ';
 import { Contact } from './components/sections/Contact';
 import { AdminPortal } from './components/admin/AdminPortal';
+import { AuthPage } from './components/auth/AuthPage';
+import { ClientPortal } from './components/user/ClientPortal';
 
 function ScrollToHashElement() {
   const location = useLocation();
@@ -112,14 +115,23 @@ function MainLayout() {
 export function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<MainLayout />} />
-          <Route path="/admin" element={<AdminPortal />} />
-          <Route path="/admin/*" element={<AdminPortal />} />
-          <Route path="*" element={<MainLayout />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<MainLayout />} />
+            <Route path="/login" element={<AuthPage initialMode="signin" />} />
+            <Route path="/signin" element={<AuthPage initialMode="signin" />} />
+            <Route path="/signup" element={<AuthPage initialMode="signup" />} />
+            <Route path="/register" element={<AuthPage initialMode="signup" />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/portal" element={<ClientPortal />} />
+            <Route path="/dashboard" element={<ClientPortal />} />
+            <Route path="/admin" element={<AdminPortal />} />
+            <Route path="/admin/*" element={<AdminPortal />} />
+            <Route path="*" element={<MainLayout />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
