@@ -123,11 +123,11 @@ try {
   getDatabase();
   console.log(`[Database] SQLite initialized successfully.`);
 
-  const server = app.listen(config.port, () => {
+  const server = app.listen(config.port, '0.0.0.0', () => {
     console.log(`=============================================`);
     console.log(`⚡ NexGen Studio Backend API is live!`);
     console.log(`🌐 Environment: ${config.nodeEnv}`);
-    console.log(`🩺 Health: http://localhost:${config.port}/health`);
+    console.log(`🩺 Health: http://0.0.0.0:${config.port}/health`);
     console.log(`🔐 Admin authentication: Active`);
     console.log(`=============================================`);
   });
